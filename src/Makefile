@@ -7,8 +7,8 @@ all: $(BIN)
 
 rebuild: clean $(BIN)
 
-$(BIN): main.c serial_util.c
-	gcc $^ -o $@ $(LIBS)
+$(BIN): main.c serial_util.c string_util.c
+	gcc $^ -o $@ $(LIBS) -lzmq -ljson-c
 
 clean:
 	rm -f $(BIN)

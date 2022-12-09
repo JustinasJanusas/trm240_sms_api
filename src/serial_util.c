@@ -3,8 +3,14 @@
 #define PORTNAME "/dev/ttyUSB2"
 #define SPEED B115200
 #define CMGF "AT+CMGF=1\r"
-#define CSCS "AT+CSCS=\"UCS2\"\r"
-#define CSMP "AT+CSMP=17,167,0,8\r"
+#define UCS2 "AT+CSCS=\"UCS2\"\r"
+#define GSM "AT+CSCS=\"GSM\"\r"
+#define CSMP_UCS2 "AT+CSMP=17,167,0,8\r"
+#define CSMP_GSM "AT+CSMP=17,167,0,0\r"
+#define READ_ALL "AT+CMGL=\"ALL\"\r"
+#define SLEEP 1
+#define BUFF_SIZE 10000
+
 
 static int configure_serial(int *fd){
     int rc = 0;
@@ -16,6 +22,7 @@ static int configure_serial(int *fd){
     }
     tty.c_cflag &= ~PARENB;
     tty.c_cflag &= ~CSTOPB;
+    tty.c_cflag &= ~CSIZE;
     tty.c_cflag |= CS8;
     tty.c_cflag &= ~CRTSCTS;
     tty.c_cflag |= CREAD | CLOCAL;
@@ -28,7 +35,7 @@ static int configure_serial(int *fd){
     tty.c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICRNL);
     tty.c_oflag &= ~OPOST;
     tty.c_oflag &= ~ONLCR;
-    tty.c_cc[VTIME] = 10;
+    tty.c_cc[VTIME] = 30;
     tty.c_cc[VMIN] = 0;
     cfsetispeed(&tty, SPEED);
     cfsetospeed(&tty, SPEED);
@@ -43,7 +50,6 @@ static int configure_serial(int *fd){
 int setup_serial(int *fd)
 {
     int rc = 0;
-    struct termios tty;
 
     *fd = open(PORTNAME, O_RDWR | O_NOCTTY | O_SYNC);
     if( *fd < 0 ){
@@ -58,16 +64,71 @@ int setup_serial(int *fd)
     return rc;
 }
 
-int send_message(int fd, char *phone_number, char *text)
+int send_message_UCS2(int fd, char *phone_number, char *text)
+{
+    char msg[100];
+    size_t bytes_sent = 0;
+    bytes_sent += write(fd, CMGF, strlen(CMGF));
+    sleep(SLEEP);
+    bytes_sent += write(fd, UCS2, strlen(UCS2));
+    sleep(SLEEP);
+    bytes_sent += write(fd, CSMP_UCS2, strlen(CSMP_UCS2));
+    sleep(SLEEP);
+    snprintf(msg, 99, (char *)"AT+CMGS=\"%s\"\r", phone_number); 
+    bytes_sent += write(fd, msg, strlen(msg));
+    sleep(SLEEP);
+    bytes_sent += write(fd, text, strlen(text));
+    sleep(SLEEP);
+    bytes_sent += write(fd, "\x1a", strlen("\x1a"));
+    return bytes_sent;
+}
+
+int send_message_GSM(int fd, char *phone_number, char *text)
 {
     char msg[30];
     size_t bytes_sent = 0;
-    bytes_sent += write(fd, CMGF, sizeof(CMGF));
-    bytes_sent += write(fd, CSCS, sizeof(CSCS));
-    bytes_sent += write(fd, CSMP, sizeof(CSMP));
+    bytes_sent += write(fd, CMGF, strlen(CMGF));
+    sleep(SLEEP);
+    bytes_sent += write(fd, GSM, strlen(GSM));
+    sleep(SLEEP);
+    bytes_sent += write(fd, CSMP_GSM, strlen(CSMP_GSM));
+    sleep(SLEEP);
     snprintf(msg, 30, (char *)"AT+CMGS=\"%s\"\r", phone_number); 
-    bytes_sent += write(fd, msg, sizeof(msg)-1);
-    bytes_sent += write(fd, text, sizeof(text)-1);
-    bytes_sent += write(fd, "\x1a", sizeof("\x1a"));
+    bytes_sent += write(fd, msg, strlen(msg));
+    sleep(SLEEP);
+    bytes_sent += write(fd, text, strlen(text));
+    sleep(SLEEP);
+    bytes_sent += write(fd, "\x1a", strlen("\x1a"));
     return bytes_sent;
 }
+
+void read_all_messages(int fd, char json[])
+{
+    //write(fd, "AT\r", strlen("AT\r"));
+    printf("why?");
+    write(fd, CMGF, strlen(CMGF));
+    sleep(SLEEP);
+    write(fd, UCS2, strlen(UCS2));
+    sleep(SLEEP);
+    write(fd, READ_ALL, strlen(READ_ALL));
+    char buff[BUFF_SIZE];
+    int read_next = 1;
+    int start_found = 0;
+    char end_string[END_STRING_SIZE];
+    strcat(json, "[");
+    sleep(SLEEP);
+    while( read_next ){
+        memset(buff, 0, sizeof(BUFF_SIZE));
+        strcat(buff, end_string);
+        read(fd, &(buff[strlen(end_string)]), BUFF_SIZE-strlen(end_string));
+        read_next = parse_messages(buff, json, &start_found, end_string);
+        //read_next =0;
+    }
+    strncat(json, "]", MAX_MESSAGES_SIZE-1-strlen(json));
+    //printf("json: %s\n", json);
+}
+
+// char *read_unread_messages(int fd)
+// {
+
+// }
