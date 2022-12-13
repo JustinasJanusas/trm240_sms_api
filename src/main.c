@@ -5,6 +5,7 @@
 
 #define RESPOND_BUFFER_SIZE 2000
 #define BAD_JSON_MESSAGE "Wrong json format"
+#define BAD_DATA "Bad data"
 
 volatile sig_atomic_t daemonize = 1;
 
@@ -12,8 +13,9 @@ void* responder;
 
 static void term_proc(int sigterm) 
 {
+    daemonize = 0;
     write(responder, " ", sizeof(" "));
-	daemonize = 0;
+	
 }
 
 int init(int *fd, void **context)
@@ -61,6 +63,7 @@ int init(int *fd, void **context)
 
 void cleanup(int fd, void **context)
 {
+    put_json_objects();
     zmq_close(responder);
     zmq_ctx_destroy(*context);
     close(fd);
@@ -80,9 +83,8 @@ int main()
     }
     syslog(LOG_INFO, "trm240_sms_api has been started");
     char buffer[RESPOND_BUFFER_SIZE];
-    char phone[60];
-    char message[1100];
-    int json_rc = 0;
+    char phone[PHONE_SIZE];
+    char message[MESSAGE_SIZE];
     while( daemonize ){
         memset(buffer, 0, sizeof(buffer));
         zmq_recv(responder, buffer, RESPOND_BUFFER_SIZE, 0);
@@ -90,13 +92,18 @@ int main()
             break;
         }
         printf("RECEIVED: %s\n", buffer);
-        json_rc = parse_json(buffer, phone, message);
-        if( json_rc ){
+        rc = parse_json(buffer, phone, message);
+        if( rc ){
             zmq_send(responder, BAD_JSON_MESSAGE, sizeof(BAD_JSON_MESSAGE), 0);
             continue;
         }
-        printf("p: %s\nm: %s\n", phone, message);
-        // send_message_GSM(fd, phone, message);
+        rc = message_to_pdu(buffer, phone, message);
+        if( rc ){
+            zmq_send(responder, BAD_DATA, sizeof(BAD_DATA), 0);
+            continue;
+        }
+        printf("p: %s, %d, %d:\nm: %s\n", phone, sizeof(phone)-1, strlen(phone), message);
+        send_message_PDU(fd, buffer);
         zmq_send(responder, "OK", strlen("OK"), 0);
     }
     printf("OOOOP\n");

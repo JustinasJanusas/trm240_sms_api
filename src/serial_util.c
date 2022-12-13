@@ -8,6 +8,7 @@
 #define CSMP_UCS2 "AT+CSMP=17,167,0,8\r"
 #define CSMP_GSM "AT+CSMP=17,167,0,0\r"
 #define READ_ALL "AT+CMGL=\"ALL\"\r"
+#define PDU "AT+CMGF=0\r"
 #define SLEEP 1
 #define BUFF_SIZE 10000
 
@@ -102,31 +103,71 @@ int send_message_GSM(int fd, char *phone_number, char *text)
     return bytes_sent;
 }
 
-void read_all_messages(int fd, char json[])
+int send_message_PDU(int fd, char *text)
 {
-    //write(fd, "AT\r", strlen("AT\r"));
-    printf("why?");
-    write(fd, CMGF, strlen(CMGF));
+    char msg[30];
+    size_t bytes_sent = 0;
+    bytes_sent += write(fd, PDU, strlen(PDU));
     sleep(SLEEP);
-    write(fd, UCS2, strlen(UCS2));
+    bytes_sent += write(fd, GSM, strlen(GSM));
+    sleep(SLEEP);
+    bytes_sent += write(fd, CSMP_GSM, strlen(CSMP_GSM));
+    sleep(SLEEP);
+    snprintf(msg, 30, (char *)"AT+CMGS=%d\r", (strlen(text)-2)/2); 
+    printf("msg: %s\n", msg);
+    bytes_sent += write(fd, msg, strlen(msg));
+    sleep(SLEEP);
+    bytes_sent += write(fd, text, strlen(text));
+    sleep(SLEEP);
+    bytes_sent += write(fd, "\x1a", strlen("\x1a"));
+    return bytes_sent;
+}
+
+void read_all_messages(int fd, char *json)
+{
+    write(fd, PDU, strlen(PDU));
+    sleep(SLEEP);
+    write(fd, GSM, strlen(GSM));
     sleep(SLEEP);
     write(fd, READ_ALL, strlen(READ_ALL));
     char buff[BUFF_SIZE];
     int read_next = 1;
     int start_found = 0;
-    char end_string[END_STRING_SIZE];
-    strcat(json, "[");
+    char string_end[END_STRING_SIZE];
     sleep(SLEEP);
     while( read_next ){
         memset(buff, 0, sizeof(BUFF_SIZE));
-        strcat(buff, end_string);
-        read(fd, &(buff[strlen(end_string)]), BUFF_SIZE-strlen(end_string));
-        read_next = parse_messages(buff, json, &start_found, end_string);
-        //read_next =0;
+        strcat(buff, string_end);
+        read(fd, &(buff[strlen(string_end)]), BUFF_SIZE-strlen(string_end));
+        read_next = parse_messages(buff, json, &start_found, string_end);
     }
-    strncat(json, "]", MAX_MESSAGES_SIZE-1-strlen(json));
-    //printf("json: %s\n", json);
 }
+
+// void read_all_messages(int fd, char json[])
+// {
+//     //write(fd, "AT\r", strlen("AT\r"));
+//     printf("why?");
+//     write(fd, PDU, strlen(PDU));
+//     sleep(SLEEP);
+//     write(fd, GSM, strlen(GSM));
+//     sleep(SLEEP);
+//     write(fd, READ_ALL, strlen(READ_ALL));
+//     char buff[BUFF_SIZE];
+//     int read_next = 1;
+//     int start_found = 0;
+//     char end_string[END_STRING_SIZE];
+//     strcat(json, "[");
+//     sleep(SLEEP);
+//     while( read_next ){
+//         memset(buff, 0, sizeof(BUFF_SIZE));
+//         strcat(buff, end_string);
+//         read(fd, &(buff[strlen(end_string)]), BUFF_SIZE-strlen(end_string));
+//         read_next = parse_messages(buff, json, &start_found, end_string);
+//         //read_next =0;
+//     }
+//     strncat(json, "]", MAX_MESSAGES_SIZE-1-strlen(json));
+//     //printf("json: %s\n", json);
+// }
 
 // char *read_unread_messages(int fd)
 // {
