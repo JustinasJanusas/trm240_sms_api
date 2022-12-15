@@ -7,7 +7,7 @@
 #define GSM "AT+CSCS=\"GSM\"\r"
 #define CSMP_UCS2 "AT+CSMP=17,167,0,8\r"
 #define CSMP_GSM "AT+CSMP=17,167,0,0\r"
-#define READ_ALL "AT+CMGL=\"ALL\"\r"
+#define READ_ALL "AT+CMGL=4\r"
 #define PDU "AT+CMGF=0\r"
 #define SLEEP 1
 #define BUFF_SIZE 10000

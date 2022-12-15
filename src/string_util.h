@@ -11,3 +11,4 @@ int parse_messages(char *buffer, char json[], int *start_found, char *end_string
 int parse_json(char *json, char *phone_number, char *message);
 int message_to_pdu(char *buffer, char *phone_number, char *message);
 void put_json_objects();
+int pdu_to_json(char *json, char *pdu, int first);
