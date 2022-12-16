@@ -6,6 +6,10 @@
 #define RESPOND_BUFFER_SIZE 2000
 #define BAD_JSON_MESSAGE "Wrong json format"
 #define BAD_DATA "Bad data"
+#define MISSING_METHOD "Missing \"method\" variable"
+#define UNDEFINED_METHOD "Unrecognized method. Known methods: \"send\", \"read\", \"custom\""
+#define UNKNOWN_ERROR "Unknown error"
+#define UNDEFINED_TYPE "Undefined or unrecognized read type. Types: \"all\", \"read\", \"unread\""
 
 volatile sig_atomic_t daemonize = 1;
 
@@ -70,7 +74,43 @@ void cleanup(int fd, void **context)
     closelog();
 }
 
+void send_message(char *json, int fd)
+{
+    char phone[PHONE_SIZE];
+    char message[MESSAGE_SIZE];
+    int rc = parse_send_json(json, phone, message);
+    if( rc ){
+        zmq_send(responder, BAD_JSON_MESSAGE, strlen(BAD_JSON_MESSAGE), 0);
+        return;
+    }
+    rc = message_to_pdu(json, phone, message);
+    if( rc ){
+        zmq_send(responder, BAD_DATA, strlen(BAD_DATA), 0);
+        return;
+    }
+    printf("p: %s, %d, %d:\nm: %s\n", phone, strlen(phone)-1, strlen(phone), message);
+    send_message_PDU(fd, json);
+    zmq_send(responder, "OK", strlen("OK"), 0);
+}
 
+void read_messages(char *json, int fd)
+{
+    int type = 4;
+    int rc = parse_read_json(json, &type);
+    if( rc ){
+        zmq_send(responder, UNDEFINED_TYPE, strlen(UNDEFINED_TYPE), 0);
+        return;
+    }
+    char message_list[MAX_MESSAGES_SIZE] = "{\"messages\":[";
+    read_message_list(fd, message_list, type);
+    strcat(message_list, "]}");
+    zmq_send(responder, message_list, strlen(message_list), 0);
+}
+
+void custom_method(char *json, int fd)
+{
+
+}
 
 int main()
 {
@@ -83,8 +123,7 @@ int main()
     }
     syslog(LOG_INFO, "trm240_sms_api has been started");
     char buffer[RESPOND_BUFFER_SIZE];
-    char phone[PHONE_SIZE];
-    char message[MESSAGE_SIZE];
+    
     while( daemonize ){
         memset(buffer, 0, sizeof(buffer));
         zmq_recv(responder, buffer, RESPOND_BUFFER_SIZE, 0);
@@ -92,21 +131,37 @@ int main()
             break;
         }
         printf("RECEIVED: %s\n", buffer);
-        rc = parse_json(buffer, phone, message);
-        if( rc ){
-            zmq_send(responder, BAD_JSON_MESSAGE, sizeof(BAD_JSON_MESSAGE), 0);
+        int method = get_method(buffer);
+        switch (method)
+        {
+        case METHOD_MISSING:
+            zmq_send(responder, MISSING_METHOD, sizeof(MISSING_METHOD), 0);
+            continue;
+        case METHOD_UNDEFINED:
+            zmq_send(responder, UNDEFINED_METHOD, sizeof(UNDEFINED_METHOD), 0);
+            continue;
+        case METHOD_SEND:
+            //send
+            send_message(buffer, fd);
+            continue;        
+        case METHOD_READ:
+            //send
+            read_messages(buffer, fd);
+            continue;
+        case METHOD_CUSTOM:
+            //custom
+            custom_method(buffer, fd);
+            continue;
+        default:
+            zmq_send(responder, UNKNOWN_ERROR, sizeof(UNKNOWN_ERROR), 0);
             continue;
         }
-        rc = message_to_pdu(buffer, phone, message);
-        if( rc ){
-            zmq_send(responder, BAD_DATA, sizeof(BAD_DATA), 0);
-            continue;
-        }
-        printf("p: %s, %d, %d:\nm: %s\n", phone, sizeof(phone)-1, strlen(phone), message);
-        send_message_PDU(fd, buffer);
-        zmq_send(responder, "OK", strlen("OK"), 0);
+        
+
+        // //read
+        
     }
-    printf("OOOOP\n");
+   
     //send_message(fd, "+37064745286", "cia yra tekstas");
     //size_t bytes = send_message_GSM(fd, "+37064745286", "cia yra tekstas");
     //size_t bytes = send_message_UCS2(fd, "002B00330037003000360034003700340035003200380036", "00310105003200330043");
@@ -115,8 +170,8 @@ int main()
     // if(bytes < 1){
     //     syslog(LOG_ERR, "Failed to send a message");
     // }
-    // char json[MAX_MESSAGES_SIZE];
-    // read_all_messages(fd, json);
+    
+    // printf("json: %s\n", json);
     // printf("%s\n", json);
     // if( json ){
     //     printf("%s\n", json);

@@ -1,32 +1,79 @@
 #include "string_util.h"
 
 
-#define OK "\nOK\n"
+#define OK "\nOK"
 #define ERROR "\nERROR\n"
 #define MSG_START "+CMGL:"
+
 
 
 json_object *jobj;
 json_object *j;
 
-int parse_json(char *json, char *phone_number, char *message)
+int get_method(char *json)
+{
+	jobj = json_tokener_parse(json);
+	j = json_object_object_get(jobj, "method");
+	if( !j ){
+		return METHOD_MISSING;
+	}
+	char *method_name = json_object_get_string(j);
+	if( strcmp(method_name, "send") == 0){
+		return METHOD_SEND;
+	}
+	else if( strcmp(method_name, "read") == 0){
+		return METHOD_READ;
+	}
+	else if( strcmp(method_name, "custom") == 0){
+		return METHOD_CUSTOM;
+	}
+	else{
+		return METHOD_UNDEFINED;
+	}
+}
+
+int parse_send_json(char *json, char *phone_number, char *message)
 {
     jobj = json_tokener_parse(json);
-    printf("jobj\n");
+    // printf("jobj\n");
     j = json_object_object_get(jobj, "phone");
-    printf("j\n");
+    // printf("j\n");
     if( !j ){
-        printf("no phon");
         return 1;
     }
     strncpy(phone_number, json_object_get_string(j), PHONE_SIZE-1);
     j = json_object_object_get(jobj, "message");
     if( !j ){
-        printf("no message");
         return 1;
     }
     strncpy(message, json_object_get_string(j), MESSAGE_SIZE-1);
     return 0;
+}
+
+int parse_read_json(char *json, int *read_type)
+{
+    jobj = json_tokener_parse(json);
+    // printf("jobj\n");
+    j = json_object_object_get(jobj, "type");
+    // printf("j\n");
+    if( !j ){
+        return 1;
+    }
+    char type[READ_TYPE_SIZE];
+	strncpy(type, json_object_get_string(j), READ_TYPE_SIZE-1);
+	if( strcmp(type, "all") == 0 ){
+		*read_type = 4;
+		return 0;
+	}
+	else if( strcmp(type, "read") == 0 ){
+		*read_type = 1;
+		return 0;
+	}
+	else if( strcmp(type, "unread") == 0 ){
+		*read_type = 0;
+		return 0;
+	}
+    return 1;
 }
 
 void put_json_objects()
@@ -35,39 +82,40 @@ void put_json_objects()
     json_object_put(j);
 }
 
-static int get_string_between_quotes(char **tmp_ptr, char **tmp_ptr2, 
-                                    char value[], int size)
-{
-    *tmp_ptr = strstr(*tmp_ptr, "\"");
-    if( !*tmp_ptr ){
-        return 1;
-    }
-    printf("size: %lu\n", sizeof('\"'));
-    (*tmp_ptr) += 1;
-    printf("%s\n", *tmp_ptr);
-    *tmp_ptr2 = *tmp_ptr+2;
-    *tmp_ptr = strstr(*tmp_ptr2, "\"");
-    if( !*tmp_ptr ){
-        return 1;
-    }
-    printf("%s\n", *tmp_ptr);
-    *tmp_ptr[0] = '\0';
-    *tmp_ptr++;
-    printf("%s\n", *tmp_ptr);
-    strncat(value, *tmp_ptr2, size);
-    return 0;
-}
+// static int get_string_between_quotes(char **tmp_ptr, char **tmp_ptr2, 
+//                                     char value[], int size)
+// {
+//     *tmp_ptr = strstr(*tmp_ptr, "\"");
+//     if( !*tmp_ptr ){
+//         return 1;
+//     }
+//     printf("size: %lu\n", sizeof('\"'));
+//     (*tmp_ptr) += 1;
+//     printf("%s\n", *tmp_ptr);
+//     *tmp_ptr2 = *tmp_ptr+2;
+//     *tmp_ptr = strstr(*tmp_ptr2, "\"");
+//     if( !*tmp_ptr ){
+//         return 1;
+//     }
+//     printf("%s\n", *tmp_ptr);
+//     *tmp_ptr[0] = '\0';
+//     *tmp_ptr++;
+//     printf("%s\n", *tmp_ptr);
+//     strncat(value, *tmp_ptr2, size);
+//     return 0;
+// }
 
 static int add_json_variable(char *json, char *status, char *phone_number, char *date, 
                             char *message){
-    char json_variable[1350];
-    sprintf(json_variable, "{\"status\":\"%s\",\"phone_number\":\"%s\",\"date\""
+    char json_variable[1500];
+    snprintf(json_variable, 1499, "{\"status\":\"%s\",\"phone_number\":\"%s\",\"date\""
             ":\"%s\",\"message\":\"%s\"}", status, phone_number, date, message);
     if(MAX_MESSAGES_SIZE - strlen(json) - strlen(json_variable) - 3 < 1){
         return 1;
     }
-    if(strlen(json) > 5)
-        strcat(json, ",");
+    if(strlen(json) > 15){
+		strcat(json, ", ");
+	}
     strcat(json, json_variable);
     return 0;
 }
@@ -171,16 +219,16 @@ int message_to_pdu(char *buffer, char *phone_number, char *message)
 	return 0;
 }
 
-int parse_messages(char *buffer, char json[], int *start_found, char *end_string)
-{
-    if( !buffer || !json){
-        return 0;
-    }
-    if( strlen(buffer) < 2 || strlen(json) >= MAX_MESSAGES_SIZE - 1 ){
-        return 0;
-    }
-    return 0;
-}
+// int parse_messages(char *buffer, char json[], int *start_found, char *end_string)
+// {
+//     if( !buffer || !json){
+//         return 0;
+//     }
+//     if( strlen(buffer) < 2 || strlen(json) >= MAX_MESSAGES_SIZE - 1 ){
+//         return 0;
+//     }
+//     return 0;
+// }
 static __uint16_t bytes_to_number(int tmp[], int count){
 	int n = 0;
 	int m = 1;
@@ -205,29 +253,29 @@ static void data_to_char_7bit(char *message, char *pdu, int offset,
 	int cycle_count = data_len - data_len / 8;
 	for(int i = 0; i < cycle_count; i++){
 		num = bytes_to_number((int[]){pdu[offset+2*i], pdu[offset+2*i+1]}, 2);
-		printf("%x >", num);
+		// printf("%x >", num);
 		
 		
 		message[written_data++] = (char)0x7F & ((num << (i%7)) | rollover);
-		printf("c: %c\n", message[written_data-1]);
+		// printf("c: %c\n", message[written_data-1]);
 		// num = 
 		// 	(char)bytes_to_number((int[]){pdu[offset+i*2], pdu[offset+i*2+1]});
 		rollover = num >> (7-(i%7));
-		printf("%x, %x\n", message[written_data-1], rollover);
+		// printf("%x, %x\n", message[written_data-1], rollover);
 		// printf("p:%d\n", num);
 		// printf("a:%d\n", 0x7F & ((pdu[offset+i] < i) | rollover));
 		// printf("i: %d\n", message[written_data-1]);
 		if( (i+1)%7 == 0 && written_data < data_len){
 			//add num
 			message[written_data++] = rollover;
-			printf("roll: %x >c %c\n", rollover, rollover);
+			// printf("roll: %x >c %c\n", rollover, rollover);
 			rollover = 0;
 			// printf("i: %d\n", message[written_data-1]);
 		}
 
 	}
 	message[written_data] = '\0';
-	printf("m: %s\n", message);
+	// printf("m: %s\n", message);
 }
 
 static void data_to_char_8bit(char *message, char *pdu, int offset, 
@@ -239,13 +287,13 @@ static void data_to_char_8bit(char *message, char *pdu, int offset,
 		message[i] = num;
 	}
 	message[data_len] = '\0';
-	printf("m: %s\n", message);
+	// printf("m: %s\n", message);
 }
 static void data_to_char_16bit(char *message, char *pdu, int offset, 
 							int data_len)
 {
 	__uint16_t num;
-	printf("oof\n");
+	// printf("oof\n");
 	int written_data = 0;
 	for(int i = 0; i < data_len/2; i++){
 		num = bytes_to_number((int[]){pdu[offset+4*i], pdu[offset+4*i+1], 
@@ -265,11 +313,11 @@ static void data_to_char_16bit(char *message, char *pdu, int offset,
 		}
 	}
 	message[written_data] = '\0';
-	printf("m: %s\n", message);
+	// printf("m: %s\n", message);
 }
 
 
-int pdu_to_json(char *json, char *pdu, int first)
+int pdu_to_json(char *json, char *pdu, char *status)
 {
 	if( !json || !pdu || strlen(pdu) < 10){
 		return 1;
@@ -329,102 +377,122 @@ int pdu_to_json(char *json, char *pdu, int first)
 		default:
 			return 1;
 	}
-	if( strlen(phone) > 0 && strlen(date) && strlen(message) ){
-		//json formating
+	
+	if( strlen(phone) > 0 && strlen(date) > 0 && strlen(message) > 0 ){
+		
+	// 	//json formating
+		char json_object[1500];
+		add_json_variable(json, status, phone, date, message);
 		return 0;
 	}
 	return 1;
 }
 
 
-// int parse_messages(char *buffer, char json[], int *start_found, char *end_string)
-// {
-//     if( !buffer || !json){
-//         return 0;
-//     }
-//     printf("tekstas\n");
-//    // printf("%s\n", json);
-//     if( strlen(buffer) < 2 || strlen(json) >= MAX_MESSAGES_SIZE - 1 ){
-//         return 0;
-//     }
-//     int read_next_line = 1;
-//     int read_next_buffer = 1;
-//     char *msg_ptr;
-//     char *tmp_ptr;
-//     char *tmp_ptr2;
-//     msg_ptr = strstr(buffer, MSG_START);
-//     if( !msg_ptr ){
-//         tmp_ptr = strstr(buffer, ERROR);
-//         if( tmp_ptr ){
-//             return 0;
-//         }
-//         else{
-//             return 1;
-//         }
-//     }
-//     tmp_ptr = strstr(msg_ptr, OK);
-//     if( tmp_ptr ){
-//         read_next_buffer = 0;
-//         tmp_ptr[0]='\0';
-//     }
-//     // char *end_ptr = strstr(buffer, OK);
-//     // if( end_ptr ){
-//     //     read_next_buffer = 0;
-//     //     end_ptr[0] = '\0';
-//     // }
-//     // else{
-//     //     end_ptr = strstr(buffer, ERROR);
-//     //     if( end_ptr ){
-//     //         read_next_buffer = 0;
-//     //         end_ptr[0] = '\0';
-//     //     }
-//     // }
-//     // char json_variable[1200];
-//     // strcat(json_variable, "{\"status\":\"");
-//     char status[50];
-//     char phone_number[50];
-//     char date[50];
-//     char message[1100];
-//     int rc = 0;
-//     while( msg_ptr ){
-//         tmp_ptr = msg_ptr;
-//         rc = get_string_between_quotes(&tmp_ptr, &tmp_ptr2, status, 49);
-//         if( rc ){
-//             break;
-//         }
-//         printf("%s\n", status);
-//         rc = get_string_between_quotes(&tmp_ptr, &tmp_ptr2, phone_number, 49);
-//         if( rc ){
-//             break;
-//         }
-//         rc = get_string_between_quotes(&tmp_ptr, &tmp_ptr2, date, 49);
-//         if( rc ){
-//             break;
-//         }
-//         tmp_ptr = strstr(tmp_ptr, "\n");
-//         if( !tmp_ptr ){
-//             break;
-//         }
-//         tmp_ptr2 = tmp_ptr+1;
-//         tmp_ptr = strstr(tmp_ptr2, "\n");
-//         if( !tmp_ptr ){
-//             break;
-//         }
-//         tmp_ptr[0] = '\0';
-//         tmp_ptr++;
-//         rc = add_json_variable(json, status, phone_number, date, message);
-//         if( rc ){
-//             return 0;
-//         }
-//         // strncat(json, buffer, MAX_MESSAGES_SIZE - 1 - strlen(json));
-//         msg_ptr = strstr(tmp_ptr, MSG_START);
-//         break;
-//     }
-//     if( msg_ptr ){
-//         strncpy(end_string, msg_ptr, END_STRING_SIZE -1);
-//     }
-//     else if( strlen(tmp_ptr) > 0 ){
-//         strncpy(end_string, tmp_ptr, END_STRING_SIZE-1);
-//     }
-//     return read_next_buffer;
-// }
+int parse_messages(char *buffer, char json[], int *start_found, char *end_string)
+{
+    if( !buffer || !json){
+        return 0;
+    }
+    printf("tekstas\n");
+   // printf("%s\n", json);
+    if( strlen(buffer) < 2 || strlen(json) >= MAX_MESSAGES_SIZE - 1 ){
+        return 0;
+    }
+    int read_next_line = 1;
+    int read_next_buffer = 1;
+    char *msg_ptr;
+    char *tmp_ptr;
+    char *tmp_ptr2;
+    
+	msg_ptr = strstr(buffer, MSG_START);
+	
+
+	
+    if( !msg_ptr ){
+        tmp_ptr = strstr(buffer, ERROR);
+        if( tmp_ptr ){
+            return 0;
+        }
+        else{
+            return 1;
+        }
+    }
+	
+    tmp_ptr = strstr(msg_ptr, OK);
+    if( tmp_ptr ){
+        read_next_buffer = 0;
+        tmp_ptr[0]='\0';
+    }
+    // char *end_ptr = strstr(buffer, OK);
+    // if( end_ptr ){
+    //     read_next_buffer = 0;
+    //     end_ptr[0] = '\0';
+    // }
+    // else{
+    //     end_ptr = strstr(buffer, ERROR);
+    //     if( end_ptr ){
+    //         read_next_buffer = 0;
+    //         end_ptr[0] = '\0';
+    //     }
+    // }
+    // char json_variable[1200];
+    // strcat(json_variable, "{\"status\":\"");
+    int status;
+	char status_str[20];
+    char phone_number[50];
+    char date[50];
+    char message[1100];
+    int rc = 0;
+    while( msg_ptr ){
+		printf("ciklas\n");
+		tmp_ptr = strstr(msg_ptr, ",");
+		if( !tmp_ptr || strlen(tmp_ptr) < 3 ){
+			break;
+		}
+		status = tmp_ptr[1]-48;
+		switch (status)
+		{
+		case STATUS_READ:
+			strcpy(status_str, "Read");
+			break;
+		case STATUS_UNREAD:
+			strcpy(status, "Unread");
+			break;
+		default:
+			strcpy(status_str, "Unknown");
+			break;
+		}
+        tmp_ptr = strstr(tmp_ptr, "\n");
+		if( !tmp_ptr ){
+			break;
+		}
+		tmp_ptr++;
+        tmp_ptr2 = strstr(tmp_ptr, "\n");
+		if( !tmp_ptr2 ){
+			break;
+		}
+		msg_ptr = strstr(tmp_ptr2, MSG_START);
+		tmp_ptr2[0] = '\0'; 
+		if( pdu_to_json(json, tmp_ptr, status_str) ){
+			return 0;
+		}
+        // if( !tmp_ptr ){
+        //     break;
+        // }
+        // tmp_ptr[0] = '\0';
+        // tmp_ptr++;
+        // rc = add_json_variable(json, status, phone_number, date, message);
+        // if( rc ){
+        //     return 0;
+        // }
+
+    }
+    if( msg_ptr ){
+        strncpy(end_string, msg_ptr, END_STRING_SIZE -1);
+    }
+    else if( strlen(tmp_ptr) > 0 ){
+        strncpy(end_string, tmp_ptr, END_STRING_SIZE-1);
+    }
+    return read_next_buffer;
+}

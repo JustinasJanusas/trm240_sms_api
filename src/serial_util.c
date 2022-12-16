@@ -7,7 +7,7 @@
 #define GSM "AT+CSCS=\"GSM\"\r"
 #define CSMP_UCS2 "AT+CSMP=17,167,0,8\r"
 #define CSMP_GSM "AT+CSMP=17,167,0,0\r"
-#define READ_ALL "AT+CMGL=4\r"
+#define READ "AT+CMGL=%d\r"
 #define PDU "AT+CMGF=0\r"
 #define SLEEP 1
 #define BUFF_SIZE 10000
@@ -123,25 +123,37 @@ int send_message_PDU(int fd, char *text)
     return bytes_sent;
 }
 
-void read_all_messages(int fd, char *json)
+void read_message_list(int fd, char *json, int read_type)
 {
     write(fd, PDU, strlen(PDU));
     sleep(SLEEP);
     write(fd, GSM, strlen(GSM));
     sleep(SLEEP);
-    write(fd, READ_ALL, strlen(READ_ALL));
+    char read_string[20];
+    snprintf(read_string, 19, READ, read_type);
+    write(fd, read_string, strlen(read_string));
     char buff[BUFF_SIZE];
     int read_next = 1;
     int start_found = 0;
-    char string_end[END_STRING_SIZE];
+    char string_end[END_STRING_SIZE] = "";
+    
     sleep(SLEEP);
+       
     while( read_next ){
+        printf("DSDS\n");
         memset(buff, 0, sizeof(BUFF_SIZE));
         strcat(buff, string_end);
+         
         read(fd, &(buff[strlen(string_end)]), BUFF_SIZE-strlen(string_end));
+        printf("lll: %d\n", strlen(buff));
+        
+        
+        //printf("%s\n", buff);
         read_next = parse_messages(buff, json, &start_found, string_end);
     }
+    printf("\n");
 }
+
 
 // void read_all_messages(int fd, char json[])
 // {

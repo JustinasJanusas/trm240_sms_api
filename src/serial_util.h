@@ -10,5 +10,5 @@
 int setup_serial(int *fd);
 int send_message_UCS2(int fd, char *phone_number, char *text);
 int send_message_GSM(int fd, char *phone_number, char *text);
-void read_all_messages(int fd, char json[]);
+void read_message_list(int fd, char *json, int read_type);
 int send_message_PDU(int fd, char *text);
