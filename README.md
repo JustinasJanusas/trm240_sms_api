@@ -1,4 +1,5 @@
 # trm240_sms_api
+trm240 api used to send and read messages, to send commands use ZeroMQ library.
 
 ## Dependencies
 [libzmq](https://zeromq.org/download/) library, to install it on debian OS you can run this command:
