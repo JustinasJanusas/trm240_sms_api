@@ -114,7 +114,6 @@ int send_message_PDU(int fd, char *text)
     bytes_sent += write(fd, CSMP_GSM, strlen(CSMP_GSM));
     sleep(SLEEP);
     snprintf(msg, 30, (char *)"AT+CMGS=%d\r", (strlen(text)-2)/2); 
-    printf("msg: %s\n", msg);
     bytes_sent += write(fd, msg, strlen(msg));
     sleep(SLEEP);
     bytes_sent += write(fd, text, strlen(text));
@@ -142,48 +141,10 @@ void read_message_list(int fd, char *json, int read_type)
     sleep(SLEEP);
        
     while( read_next ){
-        printf("DSDS\n");
         memset(buff, 0, sizeof(BUFF_SIZE));
-        strcat(buff, string_end);
-         
+        strcat(buff, string_end); 
         read(fd, &(buff[strlen(string_end)]), BUFF_SIZE-strlen(string_end));
-        printf("lll: %d\n", strlen(buff));
-        
-        
-        //printf("%s\n", buff);
         read_next = parse_messages(buff, json, &start_found, string_end);
     }
-    printf("\n");
 }
 
-
-// void read_all_messages(int fd, char json[])
-// {
-//     //write(fd, "AT\r", strlen("AT\r"));
-//     printf("why?");
-//     write(fd, PDU, strlen(PDU));
-//     sleep(SLEEP);
-//     write(fd, GSM, strlen(GSM));
-//     sleep(SLEEP);
-//     write(fd, READ_ALL, strlen(READ_ALL));
-//     char buff[BUFF_SIZE];
-//     int read_next = 1;
-//     int start_found = 0;
-//     char end_string[END_STRING_SIZE];
-//     strcat(json, "[");
-//     sleep(SLEEP);
-//     while( read_next ){
-//         memset(buff, 0, sizeof(BUFF_SIZE));
-//         strcat(buff, end_string);
-//         read(fd, &(buff[strlen(end_string)]), BUFF_SIZE-strlen(end_string));
-//         read_next = parse_messages(buff, json, &start_found, end_string);
-//         //read_next =0;
-//     }
-//     strncat(json, "]", MAX_MESSAGES_SIZE-1-strlen(json));
-//     //printf("json: %s\n", json);
-// }
-
-// char *read_unread_messages(int fd)
-// {
-
-// }

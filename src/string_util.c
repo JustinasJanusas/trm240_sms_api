@@ -35,9 +35,7 @@ int get_method(char *json)
 int parse_send_json(char *json, char *phone_number, char *message)
 {
     jobj = json_tokener_parse(json);
-    // printf("jobj\n");
     j = json_object_object_get(jobj, "phone");
-    // printf("j\n");
     if( !j ){
         return 1;
     }
@@ -63,9 +61,7 @@ int parse_custom_json(char *json, char *command)
 int parse_read_json(char *json, int *read_type)
 {
     jobj = json_tokener_parse(json);
-    // printf("jobj\n");
     j = json_object_object_get(jobj, "type");
-    // printf("j\n");
     if( !j ){
         return 1;
     }
@@ -92,28 +88,6 @@ void put_json_objects()
     json_object_put(j);
 }
 
-// static int get_string_between_quotes(char **tmp_ptr, char **tmp_ptr2, 
-//                                     char value[], int size)
-// {
-//     *tmp_ptr = strstr(*tmp_ptr, "\"");
-//     if( !*tmp_ptr ){
-//         return 1;
-//     }
-//     printf("size: %lu\n", sizeof('\"'));
-//     (*tmp_ptr) += 1;
-//     printf("%s\n", *tmp_ptr);
-//     *tmp_ptr2 = *tmp_ptr+2;
-//     *tmp_ptr = strstr(*tmp_ptr2, "\"");
-//     if( !*tmp_ptr ){
-//         return 1;
-//     }
-//     printf("%s\n", *tmp_ptr);
-//     *tmp_ptr[0] = '\0';
-//     *tmp_ptr++;
-//     printf("%s\n", *tmp_ptr);
-//     strncat(value, *tmp_ptr2, size);
-//     return 0;
-// }
 
 static int add_json_variable(char *json, char *status, char *phone_number, char *date, 
                             char *message){
@@ -139,7 +113,6 @@ int message_to_pdu(char *buffer, char *phone_number, char *message)
 	//buffer = "001100";
 	//strcat(buffer, "001100");
 	int p_len = strlen(phone_number);
-	printf("%X\n", p_len);
 	int p_m_len = p_len;
 	char *address_type = "81"; 
 	int i = 0;
@@ -154,7 +127,6 @@ int message_to_pdu(char *buffer, char *phone_number, char *message)
 		phone_number[p_len++] = 'F';
 		phone_number[p_len] = '\0';
 		p_m_len++;
-		printf("%s\n", phone_number);
 	}
 	for(; i < p_len; i+=2){
 		sprintf(buffer, "%s%c%c", buffer, phone_number[i+1], phone_number[i]);
@@ -162,7 +134,6 @@ int message_to_pdu(char *buffer, char *phone_number, char *message)
 	strcat(buffer, "00080B00");
 	for(int j = 0; j < strlen(message); j++){
 		__uint8_t byte = message[j];
-		//printf("%d\n", byte);
 		__uint16_t temp = 0;
 		if(byte > 239){
 			j += 3;
@@ -172,15 +143,11 @@ int message_to_pdu(char *buffer, char *phone_number, char *message)
 			temp =  temp | (message[j] & 0xF);
 			temp = (temp << 6) | (message[j+1] & 0x3F);
 			temp = (temp << 6) | (message[j+2] & 0x3F);
-			//printf("%X\n", temp);
 			j += 2;
-			// __uint16_t h = (temp & 0x1F00) >> 2;
-			// __uint16_t l = temp & 0x3F;
 		}
 		else if(byte > 127){
 			temp = temp | (message[j] & 0x1F);
 			temp = (temp << 6) | (message[j+1] & 0x3F);
-			//printf("%X\n", temp);
 			j++;
 		}
 		else{
@@ -221,24 +188,9 @@ int message_to_pdu(char *buffer, char *phone_number, char *message)
 		a += 55;
 	}
 	buffer[p_m_len + 16] = a;
-	// for(int j = 0; j < strlen(message); j++){
-	// 	temp = message[j];
-	// 	printf("j%d: %c, %d, %d, %d\n", j, message[j], temp, temp/(16*16*16), 16*16*16);
-	// 	sprintf(buffer, "%s%x%x%x%x", buffer, temp/(16*16*16), (temp%(16*16*16))/(16*16), (temp%(16*16))/16, temp%16);
-	// }
 	return 0;
 }
 
-// int parse_messages(char *buffer, char json[], int *start_found, char *end_string)
-// {
-//     if( !buffer || !json){
-//         return 0;
-//     }
-//     if( strlen(buffer) < 2 || strlen(json) >= MAX_MESSAGES_SIZE - 1 ){
-//         return 0;
-//     }
-//     return 0;
-// }
 static __uint16_t bytes_to_number(int tmp[], int count){
 	int n = 0;
 	int m = 1;
@@ -278,7 +230,6 @@ static void data_to_char_7bit(char *message, char *pdu, int offset,
 
 	}
 	message[written_data] = '\0';
-	// printf("m: %s\n", message);
 }
 
 static void data_to_char_8bit(char *message, char *pdu, int offset, 
@@ -290,13 +241,11 @@ static void data_to_char_8bit(char *message, char *pdu, int offset,
 		message[i] = num;
 	}
 	message[data_len] = '\0';
-	// printf("m: %s\n", message);
 }
 static void data_to_char_16bit(char *message, char *pdu, int offset, 
 							int data_len)
 {
 	__uint16_t num;
-	// printf("oof\n");
 	int written_data = 0;
 	for(int i = 0; i < data_len/2; i++){
 		num = bytes_to_number((int[]){pdu[offset+4*i], pdu[offset+4*i+1], 
@@ -316,8 +265,6 @@ static void data_to_char_16bit(char *message, char *pdu, int offset,
 		}
 	}
 	message[written_data] = '\0';
-	printf("%s\n", message);
-	// printf("m: %s\n", message);
 }
 
 
@@ -348,7 +295,6 @@ int pdu_to_json(char *json, char *pdu, char *status)
 		}
 	}
 	phone[phone_len+plus] = '\0';
-	printf("phone: %s\n", phone);
 	//data coding
 	phone_len += phone_len % 2;
 	int data_coding = bytes_to_number((int []){pdu[offset+phone_len+2], 
@@ -363,7 +309,7 @@ int pdu_to_json(char *json, char *pdu, char *status)
 			pdu[offset+8], pdu[offset+11], pdu[offset+10], 
 			pdu[offset+13] > 55 ? '-' : '+', 
 			bytes_to_number((int[]){pdu[offset+13], pdu[offset+12]}, 2)/4);
-	printf("date: %s\n", date);
+
 	//message
 	offset += 16;
 	int data_len = bytes_to_number((int[]){pdu[offset-2], pdu[offset-1]}, 2);
@@ -398,8 +344,7 @@ int parse_messages(char *buffer, char json[], int *start_found, char *end_string
     if( !buffer || !json){
         return 0;
     }
-    printf("tekstas\n");
-   // printf("%s\n", json);
+
     if( strlen(buffer) < 2 || strlen(json) >= MAX_MESSAGES_SIZE - 1 ){
         return 0;
     }
@@ -428,20 +373,7 @@ int parse_messages(char *buffer, char json[], int *start_found, char *end_string
         read_next_buffer = 0;
         tmp_ptr[0]='\0';
     }
-    // char *end_ptr = strstr(buffer, OK);
-    // if( end_ptr ){
-    //     read_next_buffer = 0;
-    //     end_ptr[0] = '\0';
-    // }
-    // else{
-    //     end_ptr = strstr(buffer, ERROR);
-    //     if( end_ptr ){
-    //         read_next_buffer = 0;
-    //         end_ptr[0] = '\0';
-    //     }
-    // }
-    // char json_variable[1200];
-    // strcat(json_variable, "{\"status\":\"");
+
     int status;
 	char status_str[20];
     char phone_number[50];
@@ -449,7 +381,6 @@ int parse_messages(char *buffer, char json[], int *start_found, char *end_string
     char message[1100];
     int rc = 0;
     while( msg_ptr ){
-		printf("ciklas\n");
 		tmp_ptr = strstr(msg_ptr, ",");
 		if( !tmp_ptr || strlen(tmp_ptr) < 3 ){
 			break;
@@ -478,19 +409,9 @@ int parse_messages(char *buffer, char json[], int *start_found, char *end_string
 		}
 		msg_ptr = strstr(tmp_ptr2, MSG_START);
 		tmp_ptr2[0] = '\0'; 
-		printf("%s\n", tmp_ptr);
 		if( pdu_to_json(json, tmp_ptr, status_str) ){
 			return 0;
 		}
-        // if( !tmp_ptr ){
-        //     break;
-        // }
-        // tmp_ptr[0] = '\0';
-        // tmp_ptr++;
-        // rc = add_json_variable(json, status, phone_number, date, message);
-        // if( rc ){
-        //     return 0;
-        // }
 
     }
     if( msg_ptr ){

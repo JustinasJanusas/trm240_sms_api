@@ -89,7 +89,6 @@ void send_message(char *json, int fd)
         zmq_send(responder, BAD_DATA, strlen(BAD_DATA), 0);
         return;
     }
-    printf("p: %s, %d, %d:\nm: %s\n", phone, strlen(phone)-1, strlen(phone), message);
     send_message_PDU(fd, json);
     zmq_send(responder, "OK", strlen("OK"), 0);
 }
@@ -141,9 +140,7 @@ int main()
         if( !daemonize ){
             break;
         }
-        printf("RECEIVED: %s\n", buffer);
         int method = get_method(buffer);
-        printf("%d\n", method);
         switch (method)
         {
             case METHOD_MISSING:
@@ -153,15 +150,12 @@ int main()
                 zmq_send(responder, UNDEFINED_METHOD, sizeof(UNDEFINED_METHOD), 0);
                 continue;
             case METHOD_SEND:
-                //send
                 send_message(buffer, fd);
                 continue;        
             case METHOD_READ:
-                //send
                 read_messages(buffer, fd);
                 continue;
             case METHOD_CUSTOM:
-                //custom
                 custom_method(buffer, fd);
                 continue;
             default:
@@ -170,24 +164,9 @@ int main()
         }
         
 
-        // //read
         
     }
    
-    //send_message(fd, "+37064745286", "cia yra tekstas");
-    //size_t bytes = send_message_GSM(fd, "+37064745286", "cia yra tekstas");
-    //size_t bytes = send_message_UCS2(fd, "002B00330037003000360034003700340035003200380036", "00310105003200330043");
-    
-    
-    // if(bytes < 1){
-    //     syslog(LOG_ERR, "Failed to send a message");
-    // }
-    
-    // printf("json: %s\n", json);
-    // printf("%s\n", json);
-    // if( json ){
-    //     printf("%s\n", json);
-    // }
     syslog(LOG_INFO, "trm240_sms_api is shutting down");
     cleanup(fd, &context);
     return 0;
