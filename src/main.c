@@ -10,6 +10,7 @@
 #define UNDEFINED_METHOD "Unrecognized method. Known methods: \"send\", \"read\", \"custom\""
 #define UNKNOWN_ERROR "Unknown error"
 #define UNDEFINED_TYPE "Undefined or unrecognized read type. Types: \"all\", \"read\", \"unread\""
+#define UNDEFINED_COMMAND "Undefined command"
 
 volatile sig_atomic_t daemonize = 1;
 
@@ -104,12 +105,22 @@ void read_messages(char *json, int fd)
     char message_list[MAX_MESSAGES_SIZE] = "{\"messages\":[";
     read_message_list(fd, message_list, type);
     strcat(message_list, "]}");
-    zmq_send(responder, message_list, strlen(message_list), 0);
+    zmq_send(responder, (char *)message_list, strlen(message_list), 0);
 }
+
+
 
 void custom_method(char *json, int fd)
 {
-
+    char command[COMMAND_SIZE];
+    int rc = parse_custom_json(json, command);
+    if( rc ){
+        zmq_send(responder, BAD_JSON_MESSAGE, strlen(BAD_JSON_MESSAGE), 0);
+        return;
+    }
+    write(fd, command, strlen(command));
+    write(fd, "\r", strlen("\r"));
+    zmq_send(responder, "OK", strlen("OK"), 0);
 }
 
 int main()
@@ -132,29 +143,30 @@ int main()
         }
         printf("RECEIVED: %s\n", buffer);
         int method = get_method(buffer);
+        printf("%d\n", method);
         switch (method)
         {
-        case METHOD_MISSING:
-            zmq_send(responder, MISSING_METHOD, sizeof(MISSING_METHOD), 0);
-            continue;
-        case METHOD_UNDEFINED:
-            zmq_send(responder, UNDEFINED_METHOD, sizeof(UNDEFINED_METHOD), 0);
-            continue;
-        case METHOD_SEND:
-            //send
-            send_message(buffer, fd);
-            continue;        
-        case METHOD_READ:
-            //send
-            read_messages(buffer, fd);
-            continue;
-        case METHOD_CUSTOM:
-            //custom
-            custom_method(buffer, fd);
-            continue;
-        default:
-            zmq_send(responder, UNKNOWN_ERROR, sizeof(UNKNOWN_ERROR), 0);
-            continue;
+            case METHOD_MISSING:
+                zmq_send(responder, MISSING_METHOD, sizeof(MISSING_METHOD), 0);
+                continue;
+            case METHOD_UNDEFINED:
+                zmq_send(responder, UNDEFINED_METHOD, sizeof(UNDEFINED_METHOD), 0);
+                continue;
+            case METHOD_SEND:
+                //send
+                send_message(buffer, fd);
+                continue;        
+            case METHOD_READ:
+                //send
+                read_messages(buffer, fd);
+                continue;
+            case METHOD_CUSTOM:
+                //custom
+                custom_method(buffer, fd);
+                continue;
+            default:
+                zmq_send(responder, UNKNOWN_ERROR, sizeof(UNKNOWN_ERROR), 0);
+                continue;
         }
         
 

@@ -49,6 +49,16 @@ int parse_send_json(char *json, char *phone_number, char *message)
     strncpy(message, json_object_get_string(j), MESSAGE_SIZE-1);
     return 0;
 }
+int parse_custom_json(char *json, char *command)
+{
+	jobj = json_tokener_parse(json);
+	j = json_object_object_get(jobj, "command");
+	if( !j ){
+		return 1;
+	}
+	strncpy(command, json_object_get_string(j), COMMAND_SIZE -1);
+	return 0;
+}
 
 int parse_read_json(char *json, int *read_type)
 {
@@ -253,24 +263,17 @@ static void data_to_char_7bit(char *message, char *pdu, int offset,
 	int cycle_count = data_len - data_len / 8;
 	for(int i = 0; i < cycle_count; i++){
 		num = bytes_to_number((int[]){pdu[offset+2*i], pdu[offset+2*i+1]}, 2);
-		// printf("%x >", num);
-		
-		
+
 		message[written_data++] = (char)0x7F & ((num << (i%7)) | rollover);
-		// printf("c: %c\n", message[written_data-1]);
-		// num = 
-		// 	(char)bytes_to_number((int[]){pdu[offset+i*2], pdu[offset+i*2+1]});
+
 		rollover = num >> (7-(i%7));
-		// printf("%x, %x\n", message[written_data-1], rollover);
-		// printf("p:%d\n", num);
-		// printf("a:%d\n", 0x7F & ((pdu[offset+i] < i) | rollover));
-		// printf("i: %d\n", message[written_data-1]);
+
 		if( (i+1)%7 == 0 && written_data < data_len){
 			//add num
 			message[written_data++] = rollover;
-			// printf("roll: %x >c %c\n", rollover, rollover);
+
 			rollover = 0;
-			// printf("i: %d\n", message[written_data-1]);
+
 		}
 
 	}
@@ -313,6 +316,7 @@ static void data_to_char_16bit(char *message, char *pdu, int offset,
 		}
 	}
 	message[written_data] = '\0';
+	printf("%s\n", message);
 	// printf("m: %s\n", message);
 }
 
@@ -453,15 +457,15 @@ int parse_messages(char *buffer, char json[], int *start_found, char *end_string
 		status = tmp_ptr[1]-48;
 		switch (status)
 		{
-		case STATUS_READ:
-			strcpy(status_str, "Read");
-			break;
-		case STATUS_UNREAD:
-			strcpy(status, "Unread");
-			break;
-		default:
-			strcpy(status_str, "Unknown");
-			break;
+			case STATUS_READ:
+				strcpy(status_str, "Read");
+				break;
+			case STATUS_UNREAD:
+				strcpy(status_str, "Unread");
+				break;
+			default:
+				strcpy(status_str, "Unknown");
+				break;
 		}
         tmp_ptr = strstr(tmp_ptr, "\n");
 		if( !tmp_ptr ){
@@ -474,6 +478,7 @@ int parse_messages(char *buffer, char json[], int *start_found, char *end_string
 		}
 		msg_ptr = strstr(tmp_ptr2, MSG_START);
 		tmp_ptr2[0] = '\0'; 
+		printf("%s\n", tmp_ptr);
 		if( pdu_to_json(json, tmp_ptr, status_str) ){
 			return 0;
 		}

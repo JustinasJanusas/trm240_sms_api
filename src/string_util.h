@@ -6,6 +6,7 @@
 #define END_STRING_SIZE 1200
 #define PHONE_SIZE 60
 #define MESSAGE_SIZE 1100
+#define COMMAND_SIZE 300
 #define READ_TYPE_SIZE 20
 #define STATUS_UNREAD 0
 #define STATUS_READ 1
@@ -22,3 +23,4 @@ void put_json_objects();
 int pdu_to_json(char *json, char *pdu, char *status);
 int get_method(char *json);
 int parse_read_json(char *json, int *read_type);
+int parse_custom_json(char *json, char *command);

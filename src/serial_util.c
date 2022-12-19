@@ -123,6 +123,8 @@ int send_message_PDU(int fd, char *text)
     return bytes_sent;
 }
 
+
+
 void read_message_list(int fd, char *json, int read_type)
 {
     write(fd, PDU, strlen(PDU));
